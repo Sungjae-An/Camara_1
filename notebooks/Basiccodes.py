@@ -69,3 +69,11 @@ from src.utils import load_data
 
 # Import - use __init__.py
 from src import Camera, load_data
+
+##  다른 컴퓨터에서 할 것 순서.
+1. Miniconda, VS code, Git 설치
+2. "Anaconda prompt" 열고 conda init cmd.exe # VS code에서 conda를 쓸수있게 함.
+3. git clone https://github.com/Sungjae-An/CAMARA_1.git
+4. cd Camara_1 # 이미 프로젝트 폴더내면 안해도됨.
+5. conda env create -f camara_1.yml
+6. conda activate exercise1
