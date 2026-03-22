@@ -36,7 +36,7 @@ Thumbs.db
 git remote add origin https://github.com/Sungjae-An/Camera_1.git
 
 # GitHub 연결 안될때
-git remote set-url origin https://github.com/Sungjae-An/Camera_1.git
+git remote set-url origin https://github.com/Sungjae-An/Camara_1.git
 
 # Git clone으로 프로젝트폴더 복사
 git clone https://github.com/USERNAME/CAMERA_1.git
@@ -72,8 +72,14 @@ from src import Camera, load_data
 
 ##  다른 컴퓨터에서 할 것 순서.
 1. Miniconda, VS code, Git 설치
-2. "Anaconda prompt" 열고 conda init cmd.exe # VS code에서 conda를 쓸수있게 함.
+2. "Anaconda prompt" 열고 conda init powershell # VS code에서 conda를 쓸수있게 함.
 3. git clone https://github.com/Sungjae-An/CAMARA_1.git
 4. cd Camara_1 # 이미 프로젝트 폴더내면 안해도됨.
 5. conda env create -f camara_1.yml
 6. conda activate exercise1
+7. git config --global user.name "Sungjae An"
+git config --global user.email "annuguri88@gmail.com" #commit전 최초한번
+
+# git config 잘 되었나 확인: 
+git config --global user.name
+git config --global user.email
