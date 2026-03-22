@@ -84,3 +84,5 @@ git config --global user.email "annuguri88@gmail.com" #commit전 최초한번
 # git config 잘 되었나 확인: 
 git config --global user.name
 git config --global user.email
+
+ddd
