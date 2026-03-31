@@ -57,7 +57,7 @@ where python # 경로에 miniconda3\envs\exercise1 포함되면 성공.
 git pull # ★★★★ 중요 !!!
 
 # ★★★★ Git 작업 끝날때 꼭 commit + push
-git add. 
+git add . 
 git commit -m "Initial project structure"
 
 git branch -M main
@@ -84,3 +84,14 @@ git config --global user.email "annuguri88@gmail.com" #commit전 최초한번
 # git config 잘 되었나 확인: 
 git config --global user.name
 git config --global user.email
+
+# .py 파일을 해당 폴더로 이동없이 실행하기
+ 방법 1.
+python D:\BB_coding\Camara_1\webcam_crosshair.py
+
+ 방법 2. (가장추천)
+프로젝트 폴더에 있는 상태로, 좌측 파일트리에서 .py 파일을 클릭하고 우측 상단 ▶ 버튼 클릭 or Ctrl+F5
+
+ 방법 3. (디버깅시 좋음)
+python
+exec(open(r"D:\BB_coding\Camara_1\webcam_crosshair.py").read())

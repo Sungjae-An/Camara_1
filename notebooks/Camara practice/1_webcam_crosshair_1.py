@@ -1,7 +1,7 @@
 import cv2
 
 # 웹캠 열기
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1) #Realsense D455 카메라번호가 "2"
 
 # 웹캠이 제대로 열렸는지 확인
 if not cap.isOpened():
