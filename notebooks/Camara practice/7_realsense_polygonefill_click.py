@@ -85,7 +85,7 @@ try:
         # 중앙점 안/밖 판정
         if len(clicked_points) >= 3:
             polygon = np.array(clicked_points, dtype=np.int32)
-            result = cv2.pointPolygonTest(polygon, (center_x, center_y), False)
+            result = cv2.pointPolygonTest(polygon, (center_x, center_y), False) # 특정 점이 다각형에 대해 안/밖/경계인지 알려주는 opencv 함수
 
             if result > 0:
                 status_text = "CENTER: INSIDE"
