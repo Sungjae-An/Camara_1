@@ -3,6 +3,8 @@ import numpy as np
 import cv2
 import mediapipe as mp
 
+# MediaPipe 최신버전은 mp.solutions.face_mesh가 안되기에, 버전다운 (0.10.9)을 하는게 편하다.
+
 # MediaPipe Face Mesh 초기화
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(
