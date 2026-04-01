@@ -1,7 +1,11 @@
 import cv2
 
 # 웹캠 열기
-cap = cv2.VideoCapture(1) #Realsense D455 카메라번호가 "2"
+cap = cv2.VideoCapture(2) #Realsense D455 카메라번호가 "2"
+
+# 해상도 설정
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
 # 웹캠이 제대로 열렸는지 확인
 if not cap.isOpened():
