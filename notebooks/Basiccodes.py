@@ -11,7 +11,7 @@
 
 conda create -n exercise1 python=3.11
 conda activate exercise1
-pip install pyrealsense2 opencv-python mediapipe numpy
+pip install pyrealsense2 opencv-python mediapipe==0.10.9 numpy
 conda list
 
 conda remove -n exercise1 --all  # 환경 지울때.
