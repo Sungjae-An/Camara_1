@@ -4,11 +4,11 @@ import cv2
 import mediapipe as mp
 
 
-def get_stable_depth(depth_frame, x, y, window_size=5):
+def get_stable_depth(depth_frame, x, y, window_size=5): # x,y는 입 중심점, window size 5라는 뜻은 주변 5x5 픽셀을 보겠다는 뜻.
     depths = []
     half = window_size // 2
 
-    for dy in range(-half, half + 1):
+    for dy in range(-half, half + 1): 
         for dx in range(-half, half + 1):
             px = x + dx
             py = y + dy
@@ -16,15 +16,15 @@ def get_stable_depth(depth_frame, x, y, window_size=5):
             if px < 0 or py < 0:
                 continue
 
-            d = depth_frame.get_distance(px, py)
+            d = depth_frame.get_distance(px, py) # 각 픽셀의 depth 읽어라
 
-            if d > 0:
+            if d > 0: # Depth가 0인 데이터는 빼라
                 depths.append(d)
 
     if len(depths) == 0:
         return 0.0
 
-    return float(np.median(depths))
+    return float(np.median(depths)) # median값을 반환해라.
 
 
 # MediaPipe Face Mesh 초기화
