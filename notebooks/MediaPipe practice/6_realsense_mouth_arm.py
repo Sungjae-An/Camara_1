@@ -6,7 +6,7 @@ import mediapipe as mp
 # ============================================================
 # [0] 전역 변수: 마우스 클릭으로 저장되는 안전영역 점들
 # ============================================================
-clicked_points = []
+clicked_points = [] # 우선 빈 리스트를 만드는것. 변수는 1개 값만 담지만, 리스트는 여러개 값을 담을 수 있다.
 
 
 # ============================================================
@@ -14,17 +14,19 @@ clicked_points = []
 #     - 왼쪽 클릭: 점 추가
 #     - 오른쪽 클릭: 마지막 점 제거
 # ============================================================
-def mouse_callback(event, x, y, flags, param):
-    global clicked_points
+def mouse_callback(event, x, y, flags, param): # def=나만의 함수를 만드는 명령. flags=shift/ctrl 같이 눌렀는지, param= 추가 데이터 전달용 (우린 안씀)
+    global clicked_points # 함수 밖에 있는 clicked_points를 수정하겠다! python에선 원래 함수 안에서 함수 밖의 변수를 수정할 수 없기에 global 선언하는것.
 
-    if event == cv2.EVENT_LBUTTONDOWN:
-        clicked_points.append((x, y))
-        print(f"점 추가: ({x}, {y})")
+    if event == cv2.EVENT_LBUTTONDOWN: # OpenCV는 마우스 동작마다 다른 숫자를 배정한다.
+        clicked_points.append((x, y)) # append: 리스트에 항목을 뒤에 추가하는 명령.
+        print(f"점 추가: ({x}, {y})") # f는 f-string: f를 붙이면 문자열 안에 변수를 {}안에 바로 넣으면 해당 변수값이 출력되게 함. .3f: 소수점 3자리까지만 표시
 
-    elif event == cv2.EVENT_RBUTTONDOWN:
+    elif event == cv2.EVENT_RBUTTONDOWN: # if 조건1 -> elif 조건2 -> elif 조건3 -> else (위 조건 전부 틀리면 실행)
         if clicked_points:
             removed = clicked_points.pop()
             print(f"점 제거: {removed}")
+
+            # 특징은 if -> elif -> elif 순서대로 위에서부터 조건을 확인. 조건이 맞으면 거기서 멈추고 나머지 조건은 확인 안함. 순서가 중요!!
 
 
 # ============================================================
@@ -34,16 +36,16 @@ def mouse_callback(event, x, y, flags, param):
 #     - x, y: 측정하고 싶은 위치
 #     - 반환값: 미터 단위 거리 (예: 0.452 = 45.2cm)
 # ============================================================
-def get_stable_depth(depth_frame, x, y, window_size=5):
-    depths = []
-    half = window_size // 2
+def get_stable_depth(depth_frame, x, y, window_size=5): # 새 함수 선언. depth_frame: 카메라에서 받은 깊이 이미지 전체
+    depths = []                 # 깊이값을 모으는 빈 리스트 생성
+    half = window_size // 2     # //는 소수점을 버리는 나누기 (ex) 5//2 = 2)
 
-    width = depth_frame.get_width()
-    height = depth_frame.get_height()
+    width = depth_frame.get_width()     # 이미지 크기 확인
+    height = depth_frame.get_height()   # 이미지 크기 확인
 
-    for dy in range(-half, half + 1):
+    for dy in range(-half, half + 1):   # half=2 니깐, range (=2,3) = -2,-1,0,1,2
         for dx in range(-half, half + 1):
-            px, py = x + dx, y + dy
+            px, py = x + dx, y + dy     # 이걸 통해 5x5=25개 픽셀을 모두 지정.
 
             # 이미지 경계 밖으로 나가면 건너뜀
             if px < 0 or py < 0 or px >= width or py >= height:
@@ -54,11 +56,11 @@ def get_stable_depth(depth_frame, x, y, window_size=5):
             if d > 0:  # 0은 측정 실패를 의미하므로 제외
                 depths.append(d)
 
-    if len(depths) == 0:
-        return 0.0
+    if len(depths) == 0:                # len=length, 리스트 항목 몇개인지 세는 함수. 
+        return 0.0                      # 측정값이 하나도 없다면 returen 0.0
 
-    return float(np.median(depths))  # 중간값 반환 (튀는 값 영향 최소화)
-
+    return float(np.median(depths))     # np.median()은 numpy전용 숫자형식 -> float()로 파이썬 일반숫자로 변환. 중간값 반환 (튀는 값 영향 최소화)
+                                        # return으로 계산 결과를 함수 밖으로 내보낸다 -> 이후 함수 밖에서 mouth_z=get_stable_depth(depth_frame,mouth_x,mouth_y)에서 받는다.
 
 # ============================================================
 # [3] MediaPipe 초기화
@@ -66,17 +68,17 @@ def get_stable_depth(depth_frame, x, y, window_size=5):
 #     - Pose: 몸의 33개 관절을 인식 → 팔 위치 추출에 사용
 #     두 분석기를 동시에 만들어두고, 매 프레임마다 둘 다 실행할 거예요
 # ============================================================
-mp_face_mesh = mp.solutions.face_mesh
-face_mesh = mp_face_mesh.FaceMesh(
-    static_image_mode=False,   # False = 동영상 모드 (연속 추적)
-    max_num_faces=1,           # 얼굴 1개만 인식
-    refine_landmarks=True      # 입술/눈 등 세밀한 점도 인식
+mp_face_mesh = mp.solutions.face_mesh   # mediapipe함 (mp)에서 face_mesh 설계도를 꺼낸다.
+face_mesh = mp_face_mesh.FaceMesh(      # face_mesh 설계도로 face_mesh 라는 인식기를 만들자.
+    static_image_mode=False,            # False = 동영상 모드 (연속 추적) (True는 매 프레임을 독립된 사진으로 봐서 느리지만 정확)
+    max_num_faces=1,                    # 얼굴 1개만 인식
+    refine_landmarks=True               # 입술/눈 등 세밀한 점도 인식. (False는 기본 468개 점만 인식. True는 입술, 눈 주변 점이 더 추가됨)
 )
 
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(
     static_image_mode=False,
-    model_complexity=1,        # 0=빠름, 1=보통, 2=정확 → 1로 균형
+    model_complexity=1,                 # 0=빠름, 1=보통, 2=정확 → 1로 균형
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5
 )
