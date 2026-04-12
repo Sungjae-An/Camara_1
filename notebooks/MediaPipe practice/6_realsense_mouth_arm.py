@@ -90,22 +90,22 @@ pose = mp_pose.Pose(
 #     - 깊이 이미지(Z16): 각 픽셀까지의 거리 측정용
 #     - 둘 다 640x480, 30fps
 # ============================================================
-pipeline = rs.pipeline()
-config = rs.config()
-config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-pipeline.start(config)
+pipeline = rs.pipeline()                # Pipeline을 통해서 카메라 -> 파이썬 코드로 프레임들이 가는것.
+config = rs.config()                    # 빈 설정지를 생성
+config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)     # 색상이미지를 가로640*세로480픽셀로, 색상형식은 파랑/초록/빨강 각 8비트(256가지)로, 초당 30프레임 달라
+config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)      # 깊이 이미지를 거리값 16비트 (1m 거리를 65536칸으로 쪼개서 (1칸=0.015mm))로, 초당 30프레임 달라
+pipeline.start(config)                  # config 설정대로 카메라 파이프라인 켜줘. 카메라를 켜야만 프레임을 받을 수 있다!!
 
-window_name = "통합: 입 + 팔 + 안전영역"
-cv2.namedWindow(window_name)
-cv2.setMouseCallback(window_name, mouse_callback)
+window_name = "통합: 입 + 팔 + 안전영역"    
+cv2.namedWindow(window_name)                        # window_name을 가진 창을 화면에 만들어줘.
+cv2.setMouseCallback(window_name, mouse_callback)   # 이 창에서 마우스 이벤트가 생기면 mouse_callback을 실행해줘
 
 
 # ============================================================
 # [5] 메인 루프: 매 프레임마다 반복 실행
 # ============================================================
-try:
-    while True:
+try:                # try 뜻: 실행하다 오류나면 맨 마지막에 finally 코드는 꼭 실행해줘. 안그러면 에러났을때 pipeline.stop() 안돼서 카메라가 안꺼진채임.
+    while True:     # True 조건이면 무한루프로 매 프레임 진행시켜
 
         # --- 5-1) 카메라에서 프레임 1번만 받기 ---
         # 이전에는 두 코드가 각각 프레임을 받았는데,
@@ -117,39 +117,40 @@ try:
         if not color_frame or not depth_frame:
             continue
 
-        color_image = np.asanyarray(color_frame.get_data())  # BGR (OpenCV용)
-        rgb_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)  # RGB (MediaPipe용)
-        h, w, _ = color_image.shape
-
+        color_image = np.asanyarray(color_frame.get_data())  # BGR (OpenCV용), np.asanyarray를 통해 Realsense 전용 데이터를 NumPy 배열로 전환해야 openCV, mediapipe가 이미지 읽을 수 있다.
+         rgb_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)  # RGB (MediaPipe용), OpenCV는 BGR순서로 색을 읽지만, MediaPipe는 RGB로 읽는다.
+        h, w, _ = color_image.shape     # _는 "버린다"는 파이썬 표현, .shape 로 (380, 640, 3)을 (480, 640, _)로 3개 변수에 저장함.
+                                        # 같은 이미지를 openCV용 (화면표시) BGR로 하나, MediaPipe용 (얼굴/관절인식) RGB로 하나 만드는 것이다.
 
         # --- 5-2) 안전영역 다각형 그리기 ---
         # 3개 이상의 점이 있을 때만 다각형을 채워서 표시
+        # 먼저 노란색 칠하는 layer를 만들고, 그 위에 점, 선, 번호 layer를 덮어야 노란색으로 점/선이 가려지지 않음.
         if len(clicked_points) >= 3:
-            overlay = color_image.copy()
-            polygon = np.array(clicked_points, dtype=np.int32)
-            cv2.fillPoly(overlay, [polygon], (0, 255, 255))  # 노란색으로 채우기
-            color_image = cv2.addWeighted(overlay, 0.25, color_image, 0.75, 0)  # 25% 투명도
+            overlay = color_image.copy()                                # 원본 이미지를 복사해서 overlay라는 사본 만들기
+            polygon = np.array(clicked_points, dtype=np.int32)          # dtype=np.int32를 통해, 숫자를 정수(int)로 저장.
+            cv2.fillPoly(overlay, [polygon], (0, 255, 255))             # 노란색으로 채우기
+            color_image = cv2.addWeighted(overlay, 0.25, color_image, 0.75, 0)  # 25% 투명도, 맨 끝의 0은 밝기보정을 안한다는 뜻.
 
         # 클릭한 점들과 연결선 표시
-        for i, (x, y) in enumerate(clicked_points):
-            cv2.circle(color_image, (x, y), 5, (0, 0, 255), -1)
-            cv2.putText(color_image, str(i), (x + 8, y - 8),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        for i, (x, y) in enumerate(clicked_points):                     # enumerate로 인덱스 (순서번호, i)를 같이 줘라.
+            cv2.circle(color_image, (x, y), 5, (0, 0, 255), -1)         # (x,y)에 반지름 5픽셀 원을 빨간색(BGR)으로, 원 안을 꽉 채워서 (-1) 그려줘
+            cv2.putText(color_image, str(i), (x + 8, y - 8),            # str(i)를 통해 숫자를 문자로 변환.
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)  # 맨 마지막 1은 글씨 두께.
 
-        for i in range(len(clicked_points) - 1):
+        for i in range(len(clicked_points) - 1):                        # -1 을 해서 마지막 점은 다음 점이 없으니깐 그 전가지만 연결해라.
             cv2.line(color_image, clicked_points[i], clicked_points[i + 1], (255, 0, 0), 2)
 
-        if len(clicked_points) >= 3:
+        if len(clicked_points) >= 3:                                    # clicked_points[-1]에서 -1은 리스트 맨 마지막 점.
             cv2.line(color_image, clicked_points[-1], clicked_points[0], (0, 255, 255), 2)
 
 
         # --- 5-3) Face Mesh로 입 위치 인식 ---
         # rgb_image를 Face Mesh에 넣으면 468개 얼굴 점을 돌려줌
         # 그 중 13번(윗입술), 14번(아랫입술)의 중간점 = 입 중심
-        face_results = face_mesh.process(rgb_image)
-        mouth_x, mouth_y, mouth_z = None, None, None  # 나중에 팔과 비교할 때 쓸 변수
+        face_results = face_mesh.process(rgb_image)     # rgb_image를 넣어서 결과를 face_results에 저장
+        mouth_x, mouth_y, mouth_z = None, None, None    # 초기화
 
-        if face_results.multi_face_landmarks:
+        if face_results.multi_face_landmarks:                      # if 가 있어야 인식이 실패할때 FaceMesh 코드 블록을 건너뛰고 에러 안난다.
             face_landmarks = face_results.multi_face_landmarks[0]  # 첫 번째 얼굴만 사용
 
             upper_lip = face_landmarks.landmark[13]
@@ -167,7 +168,7 @@ try:
 
             # 입 위치 표시
             cv2.circle(color_image, (mouth_x, mouth_y), 6, (0, 0, 255), -1)
-            cv2.putText(color_image, f"Mouth z={mouth_z:.3f}m", (10, 30),
+            cv2.putText(color_image, f"Mouth z={mouth_z:.3f}m", (10, 30),       # mouth_z:.3f 로 소수점 3자리까지 표시
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
 
@@ -178,15 +179,15 @@ try:
         wrist_x, wrist_y = None, None  # 나중에 안전영역 판정에 쓸 변수
 
         if pose_results.pose_landmarks:
-            landmarks = pose_results.pose_landmarks.landmark
+            landmarks = pose_results.pose_landmarks.landmark        # .landmark를 붙여서 33개 관절 목록을 꺼낸다.
 
             shoulder = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER]
             elbow    = landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW]
             wrist    = landmarks[mp_pose.PoseLandmark.RIGHT_WRIST]
 
             # 비율값 → 픽셀 변환 (화면 밖으로 나가지 않도록 clamp)
-            shoulder_x = max(0, min(w-1, int(shoulder.x * w)))
-            shoulder_y = max(0, min(h-1, int(shoulder.y * h)))
+            shoulder_x = max(0, min(w-1, int(shoulder.x * w)))     # Pose는 FaceMesh와 달리 clamp (값이 범위 못벗어나게)를 추가함. 팔이 화면 밖으로 나갈 수 있으므로.
+            shoulder_y = max(0, min(h-1, int(shoulder.y * h)))     # shoulder_y는 최대 h-1값을 가질 수 있구나
             elbow_x    = max(0, min(w-1, int(elbow.x * w)))
             elbow_y    = max(0, min(h-1, int(elbow.y * h)))
             wrist_x    = max(0, min(w-1, int(wrist.x * w)))
@@ -201,13 +202,13 @@ try:
             cv2.circle(color_image, (shoulder_x, shoulder_y), 8, (255, 0, 0), -1)
             cv2.circle(color_image, (elbow_x, elbow_y), 8, (0, 255, 0), -1)
             cv2.circle(color_image, (wrist_x, wrist_y), 8, (0, 0, 255), -1)
-            cv2.line(color_image, (shoulder_x, shoulder_y), (elbow_x, elbow_y), (255, 255, 0), 2)
+            cv2.line(color_image, (shoulder_x, shoulder_y), (elbow_x, elbow_y), (255, 255, 0), 2)   # cv2.line의 맨 끝 2는 선 두께
             cv2.line(color_image, (elbow_x, elbow_y), (wrist_x, wrist_y), (255, 255, 0), 2)
 
             # 관절 이름 표시
-            cv2.putText(color_image, f"Shoulder z={shoulder_z:.3f}m", (10, 60),
+            cv2.putText(color_image, f"Shoulder z={shoulder_z:.3f}m", (10, 60),             # (10,60): 화면왼쪽에서 10픽셀, 위에서 60픽셀 위치
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
-            cv2.putText(color_image, f"Elbow z={elbow_z:.3f}m", (10, 90),
+            cv2.putText(color_image, f"Elbow z={elbow_z:.3f}m", (10, 90),                   # (10,60)보다 1줄 아래가 (10,90). 30픽셀간격
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
             cv2.putText(color_image, f"Wrist z={wrist_z:.3f}m", (10, 120),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
@@ -243,11 +244,12 @@ try:
 
         cv2.imshow(window_name, color_image)
 
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
+        key = cv2.waitKey(1) & 0xFF         # 매 프레임마다 1 miㅣlisec동안 키보드 입력을 기다려. 0이면 키 입력까지 무한히 기다려서 화면이 멈춰버림.
+                                            # 0xFF: WaitKey의 운영체제 호환성때문. 윈도우는 8비트로 0x71 이어도 리눅스는 0xFFFFFF71 이렇게 32비트 숫자를 반환함.
+        if key == ord('q'):                 # ord()는 글자를 숫자로 변환하는 함수. ord('q')=113
             break
         elif key == ord('c'):
-            clicked_points.clear()
+            clicked_points.clear()          # .clear()는 .append()의 반대
             print("안전영역 초기화")
 
 # ============================================================
