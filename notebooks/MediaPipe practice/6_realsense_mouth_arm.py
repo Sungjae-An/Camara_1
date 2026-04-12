@@ -194,9 +194,9 @@ try:                # try 뜻: 실행하다 오류나면 맨 마지막에 finall
             wrist_y    = max(0, min(h-1, int(wrist.y * h)))
 
             # 깊이값 측정
-            shoulder_z = get_stable_depth(depth_frame, shoulder_x, shoulder_y)
-            elbow_z    = get_stable_depth(depth_frame, elbow_x, elbow_y)
-            wrist_z    = get_stable_depth(depth_frame, wrist_x, wrist_y)
+            shoulder_z = get_stable_depth(depth_frame, shoulder_x, shoulder_y, window_size=15)
+            elbow_z    = get_stable_depth(depth_frame, elbow_x, elbow_y, window_size=15)
+            wrist_z    = get_stable_depth(depth_frame, wrist_x, wrist_y, window_size=15)
 
             # 관절 점과 선 표시
             cv2.circle(color_image, (shoulder_x, shoulder_y), 8, (255, 0, 0), -1)
