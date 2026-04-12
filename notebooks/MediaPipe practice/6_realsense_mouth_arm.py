@@ -118,7 +118,7 @@ try:                # try 뜻: 실행하다 오류나면 맨 마지막에 finall
             continue
 
         color_image = np.asanyarray(color_frame.get_data())  # BGR (OpenCV용), np.asanyarray를 통해 Realsense 전용 데이터를 NumPy 배열로 전환해야 openCV, mediapipe가 이미지 읽을 수 있다.
-         rgb_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)  # RGB (MediaPipe용), OpenCV는 BGR순서로 색을 읽지만, MediaPipe는 RGB로 읽는다.
+        rgb_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)  # RGB (MediaPipe용), OpenCV는 BGR순서로 색을 읽지만, MediaPipe는 RGB로 읽는다.
         h, w, _ = color_image.shape     # _는 "버린다"는 파이썬 표현, .shape 로 (380, 640, 3)을 (480, 640, _)로 3개 변수에 저장함.
                                         # 같은 이미지를 openCV용 (화면표시) BGR로 하나, MediaPipe용 (얼굴/관절인식) RGB로 하나 만드는 것이다.
 
