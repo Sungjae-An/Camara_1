@@ -69,12 +69,12 @@ def distance_point_to_plane(point, plane):
 # ============================================================
 # [3] 마우스 콜백 함수
 # ============================================================
-def mouse_callback(event, x, y, flags, param):  
+def mouse_callback(event, x, y, flags, param):
     global clicked_points, food_zones, current_zone_name
     global mode, table_points_3d, table_plane, table_mode
 
     if event == cv2.EVENT_LBUTTONDOWN:
-        depth_frame = param     # param은 OpenCV가 자동으로 넣어주지 못하는 값을 넣어주는 것임.
+        depth_frame = param
 
         if table_mode:
             # 테이블 설정 모드: 클릭한 점의 3D 좌표 저장
@@ -354,4 +354,161 @@ try:
                 depth_intrin, [wrist_x, wrist_y], wrist_z)
 
             # 손목과 테이블 평면 사이의 실제 거리
-            dist_to_table = distance_point_t
+            dist_to_table = distance_point_to_plane(wrist_point, table_plane)
+
+            # 거리에 따라 3단계 판정
+            # SAFE_HEIGHT: 이 거리 이상이면 안전 (테이블 위 허공)
+            # WARN_HEIGHT: 이 거리 이하면 주의
+            SAFE_HEIGHT = 0.10   # 10cm 이상 → 안전
+            WARN_HEIGHT = 0.05   # 5cm 이하  → 위험
+
+            if dist_to_table >= SAFE_HEIGHT:
+                danger_text  = f"SAFE (table dist: {dist_to_table:.3f}m)"
+                danger_color = (0, 255, 0)     # 초록
+            elif dist_to_table >= WARN_HEIGHT:
+                danger_text  = f"WARNING (table dist: {dist_to_table:.3f}m)"
+                danger_color = (0, 255, 255)   # 노랑
+            else:
+                danger_text  = f"DANGER! (table dist: {dist_to_table:.3f}m)"
+                danger_color = (0, 0, 255)     # 빨강
+
+            cv2.putText(color_image, danger_text, (10, 200),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, danger_color, 2)
+
+
+        # --- 7-9) 손목 → 입 3D 거리 계산 ---
+        if (mouth_x is not None and wrist_x is not None
+                and mouth_z > 0 and wrist_z > 0):
+
+            depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
+
+            mouth_point = rs.rs2_deproject_pixel_to_point(
+                depth_intrin, [mouth_x, mouth_y], mouth_z)
+            wrist_point = rs.rs2_deproject_pixel_to_point(
+                depth_intrin, [wrist_x, wrist_y], wrist_z)
+
+            dx = mouth_point[0] - wrist_point[0]
+            dy = mouth_point[1] - wrist_point[1]
+            dz = mouth_point[2] - wrist_point[2]
+            distance_3d = (dx**2 + dy**2 + dz**2) ** 0.5
+
+            THRESHOLD = 0.1   # 10cm 이내면 도착
+
+            if distance_3d < THRESHOLD:
+                dist_color = (0, 0, 255)
+                dist_text  = f"NEAR MOUTH! {distance_3d:.3f}m"
+            else:
+                dist_color = (0, 255, 0)
+                dist_text  = f"Wrist->Mouth: {distance_3d:.3f}m"
+
+            cv2.putText(color_image, dist_text, (10, 240),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, dist_color, 2)
+
+            cv2.line(color_image,
+                     (wrist_x, wrist_y),
+                     (mouth_x, mouth_y),
+                     dist_color, 2)
+
+
+        # --- 7-10) 손목과 가장 가까운 식판 칸 찾기 ---
+        if (mode == "running" and wrist_x is not None
+                and len(food_zones) > 0 and wrist_z > 0):
+
+            depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
+            wrist_point = rs.rs2_deproject_pixel_to_point(
+                depth_intrin, [wrist_x, wrist_y], wrist_z)
+
+            min_distance = float('inf')
+            nearest_zone = None
+
+            for zone_name, zone_data in food_zones.items():
+                zz = zone_data["z"]
+                if zz <= 0:
+                    continue
+
+                zone_point = rs.rs2_deproject_pixel_to_point(
+                    depth_intrin, [zone_data["x"], zone_data["y"]], zz)
+
+                dx = wrist_point[0] - zone_point[0]
+                dy = wrist_point[1] - zone_point[1]
+                dz = wrist_point[2] - zone_point[2]
+                dist = (dx**2 + dy**2 + dz**2) ** 0.5
+
+                if dist < min_distance:
+                    min_distance = dist
+                    nearest_zone = zone_name
+
+            if nearest_zone is not None:
+                zone_text = f"Nearest: {nearest_zone} ({min_distance:.3f}m)"
+                cv2.putText(color_image, zone_text, (10, 280),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 165, 0), 2)
+
+                zx = food_zones[nearest_zone]["x"]
+                zy = food_zones[nearest_zone]["y"]
+                cv2.line(color_image, (wrist_x, wrist_y), (zx, zy), (255, 165, 0), 2)
+
+
+        # --- 7-11) 안내 문구 및 화면 출력 ---
+        cv2.putText(color_image,
+                    "s:setting | t:table | r:running | c:clear zones | q:quit",
+                    (10, h - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+
+        cv2.imshow(window_name, color_image)
+
+
+        # --- 7-12) 키보드 입력 처리 ---
+        key = cv2.waitKey(1) & 0xFF
+
+        if table_mode:
+            # 테이블 설정 모드에서는 ESC만 탈출
+            if key == 27:  # ESC
+                table_mode = False
+                if table_plane is not None:
+                    print("Table plane ready!")
+                else:
+                    print(f"Need {max(0, 4-len(table_points_3d))} more points!")
+
+        elif mode == "setting":
+            if key == 27:  # ESC → 실행 모드로
+                mode = "running"
+                current_zone_name = ""
+                print(f"Running mode! Zones: {list(food_zones.keys())}")
+
+            elif key == 13:  # Enter
+                if current_zone_name != "":
+                    print(f"Name confirmed: [{current_zone_name}] → Click!")
+
+            elif key == 8:  # Backspace
+                current_zone_name = current_zone_name[:-1]
+                print(f"Input: [{current_zone_name}]")
+
+            elif 32 <= key <= 126:
+                current_zone_name += chr(key)
+                print(f"Input: [{current_zone_name}]")
+
+        else:
+            # 실행 모드
+            if key == ord('q'):
+                break
+            elif key == ord('s'):
+                mode = "setting"
+                current_zone_name = ""
+                print("Setting mode!")
+            elif key == ord('t'):
+                table_mode = True
+                print("Table mode! Click 4+ points on table surface!")
+            elif key == ord('r'):
+                mode = "running"
+                print(f"Running mode! Zones: {list(food_zones.keys())}")
+            elif key == ord('c'):
+                food_zones.clear()
+                current_zone_name = ""
+                print("Zones cleared!")
+
+
+# ============================================================
+# [8] 종료 처리
+# ============================================================
+finally:
+    pipeline.stop()
+    cv2.destroyAllWindows()
