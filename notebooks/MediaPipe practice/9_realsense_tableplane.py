@@ -74,7 +74,7 @@ def mouse_callback(event, x, y, flags, param):
     global mode, table_points_3d, table_plane, table_mode
 
     if event == cv2.EVENT_LBUTTONDOWN:
-        depth_frame = param
+        depth_frame = param         # def mouse_callback 함수내 OpenCV가 자동으로 못주는 값을 param이 외부에서 depth_frame을 가져와서 주는것.
 
         if table_mode:
             # 테이블 설정 모드: 클릭한 점의 3D 좌표 저장
