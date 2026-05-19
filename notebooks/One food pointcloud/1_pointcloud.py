@@ -6,30 +6,28 @@ import mediapipe as mp
 # ============================================================
 # [0] 전역 변수
 # ============================================================
-clicked_points = []     # 안전영역 점들
-mode = "running"        # 현재 모드
+mode = "running"
 
 # 테이블 평면 관련
-table_points_3d = []    # 테이블 클릭 점들의 실제 3D 좌표
-table_plane = None      # 계산된 평면 방정식 (a, b, c, d)
-table_mode = False      # 테이블 설정 중인지 여부
+table_points_3d = []
+table_plane = None
+table_mode = False
 
 # depth 이전 프레임 유지
 last_wrist_z = 0.0
 last_mouth_z = 0.0
 
 # ROI 관련
-food_roi = {}           # 음식 영역 {"rice": {"x1","y1","x2","y2"}}
-drag_start = None       # 드래그 시작점
-drag_end = None         # 드래그 끝점
-dragging = False        # 드래그 중인지
-current_roi_name = ""   # 현재 입력중인 ROI 이름
-roi_mode = False        # ROI 지정 모드
+food_roi = {}
+drag_start = None
+drag_end = None
+dragging = False
+current_roi_name = ""
+roi_mode = False
 
 
 # ============================================================
 # [1] 평면 방정식 계산 함수
-#     - 테이블 위 4개 이상의 3D 점으로 평면 계산
 # ============================================================
 def calculate_plane(points_3d):
     points = np.array(points_3d)
@@ -44,7 +42,6 @@ def calculate_plane(points_3d):
 
 # ============================================================
 # [2] 점과 평면 사이의 거리 계산 함수
-#     - 손목이 테이블 평면으로부터 얼마나 떨어져 있는지
 # ============================================================
 def distance_point_to_plane(point, plane):
     a, b, c, d = plane
@@ -58,7 +55,6 @@ def distance_point_to_plane(point, plane):
 
 # ============================================================
 # [3] 안정적인 깊이값 계산 함수
-#     - 주변 픽셀의 중간값으로 노이즈 제거
 # ============================================================
 def get_stable_depth(depth_frame, x, y, window_size=15):
     depths = []
@@ -82,7 +78,6 @@ def get_stable_depth(depth_frame, x, y, window_size=15):
 
 # ============================================================
 # [4] 포인트 클라우드 추출 함수
-#     - ROI 영역의 음식 표면을 3D 점들로 추출
 # ============================================================
 def get_food_pointcloud(depth_frame, roi):
     depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
@@ -91,8 +86,7 @@ def get_food_pointcloud(depth_frame, roi):
     x1, y1 = roi["x1"], roi["y1"]
     x2, y2 = roi["x2"], roi["y2"]
 
-    # step=5 → 5픽셀마다 하나씩 샘플링 (속도 최적화)
-    step = 5
+    step = 5  # 5픽셀마다 샘플링
 
     for py in range(y1, y2, step):
         for px in range(x1, x2, step):
@@ -107,7 +101,6 @@ def get_food_pointcloud(depth_frame, roi):
 
 # ============================================================
 # [5] 음식 표면 분석 함수
-#     - 포인트 클라우드로 음식 높이, 남은양 등 분석
 # ============================================================
 def analyze_food_surface(points_3d, table_plane):
     if len(points_3d) < 10:
@@ -122,18 +115,16 @@ def analyze_food_surface(points_3d, table_plane):
         heights.append(h)
 
     heights = np.array(heights)
-
-    # 1cm 이상 높이 있는 점만 음식으로 간주
-    food_heights = heights[heights > 0.01]
+    food_heights = heights[heights > 0.01]  # 1cm 이상만 음식으로 간주
 
     if len(food_heights) == 0:
         return None
 
     return {
-        "avg_height":  float(np.mean(food_heights)),   # 평균 높이
-        "max_height":  float(np.max(food_heights)),    # 최대 높이
-        "std_height":  float(np.std(food_heights)),    # 표면 울퉁불퉁함
-        "food_amount": len(food_heights) / len(heights) # 음식 남은 비율
+        "avg_height":  float(np.mean(food_heights)),
+        "max_height":  float(np.max(food_heights)),
+        "std_height":  float(np.std(food_heights)),
+        "food_amount": len(food_heights) / len(heights)
     }
 
 
@@ -141,7 +132,6 @@ def analyze_food_surface(points_3d, table_plane):
 # [6] 마우스 콜백 함수
 # ============================================================
 def mouse_callback(event, x, y, flags, param):
-    global clicked_points, mode
     global table_points_3d, table_plane, table_mode
     global drag_start, drag_end, dragging
     global food_roi, current_roi_name, roi_mode
@@ -182,7 +172,8 @@ def mouse_callback(event, x, y, flags, param):
             z = get_stable_depth(depth_frame, x, y)
             if z > 0:
                 depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
-                point_3d = rs.rs2_deproject_pixel_to_point(depth_intrin, [x, y], z)
+                point_3d = rs.rs2_deproject_pixel_to_point(
+                    depth_intrin, [x, y], z)
                 table_points_3d.append(point_3d)
                 print(f"Table point added: ({x},{y}) z={z:.3f}m")
                 if len(table_points_3d) >= 4:
@@ -191,11 +182,6 @@ def mouse_callback(event, x, y, flags, param):
             else:
                 print("Depth not detected. Try another spot!")
 
-        # ── 실행 모드: 안전영역 점 추가 ──
-        elif mode == "running":
-            clicked_points.append((x, y))
-            print(f"Safety zone point added: ({x},{y})")
-
     elif event == cv2.EVENT_RBUTTONDOWN:
         if table_mode:
             if table_points_3d:
@@ -203,10 +189,6 @@ def mouse_callback(event, x, y, flags, param):
                 if len(table_points_3d) < 4:
                     table_plane = None
                     print("Table plane reset (less than 4 points)")
-        elif mode == "running":
-            if clicked_points:
-                clicked_points.pop()
-                print("Safety zone point removed")
 
 
 # ============================================================
@@ -280,7 +262,7 @@ try:
         else:
             cv2.rectangle(color_image, (0, 0), (w, 40), (0, 150, 0), -1)
             cv2.putText(color_image,
-                        "RUNNING | Left:add zone | Right:remove | t:table | v:ROI | c:clear | q:quit",
+                        "RUNNING | t:table | v:ROI | c:clear | q:quit",
                         (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
 
@@ -293,30 +275,11 @@ try:
             need = max(0, 4 - len(table_points_3d))
             cv2.putText(color_image,
                         f"Table plane: need {need} more points (t key)",
-                        (w - 380, 70),
+                        (w - 400, 70),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 100, 255), 2)
 
 
-        # --- 9-4) 안전영역 다각형 그리기 ---
-        if len(clicked_points) >= 3:
-            overlay = color_image.copy()
-            polygon = np.array(clicked_points, dtype=np.int32)
-            cv2.fillPoly(overlay, [polygon], (0, 255, 255))
-            color_image = cv2.addWeighted(overlay, 0.25, color_image, 0.75, 0)
-
-        for i, (px, py) in enumerate(clicked_points):
-            cv2.circle(color_image, (px, py), 5, (0, 0, 255), -1)
-            cv2.putText(color_image, str(i), (px + 8, py - 8),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-
-        for i in range(len(clicked_points) - 1):
-            cv2.line(color_image, clicked_points[i], clicked_points[i+1], (255, 0, 0), 2)
-
-        if len(clicked_points) >= 3:
-            cv2.line(color_image, clicked_points[-1], clicked_points[0], (0, 255, 255), 2)
-
-
-        # --- 9-5) ROI 영역 표시 및 음식 표면 분석 ---
+        # --- 9-4) ROI 영역 표시 및 음식 표면 분석 ---
         for roi_name, roi in food_roi.items():
             rx1, ry1 = roi["x1"], roi["y1"]
             rx2, ry2 = roi["x2"], roi["y2"]
@@ -325,7 +288,6 @@ try:
             cv2.putText(color_image, roi_name, (rx1, ry1 - 8),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 200), 2)
 
-            # 포인트 클라우드 분석
             points_3d = get_food_pointcloud(depth_frame, roi)
             analysis  = analyze_food_surface(points_3d, table_plane)
 
@@ -335,11 +297,11 @@ try:
                 amount = analysis["food_amount"]
 
                 if avg_h > 0.03:
-                    info_color = (0, 255, 0)    # 초록: 충분
+                    info_color = (0, 255, 0)
                 elif avg_h > 0.01:
-                    info_color = (0, 255, 255)  # 노랑: 적음
+                    info_color = (0, 255, 255)
                 else:
-                    info_color = (0, 0, 255)    # 빨강: 거의 없음
+                    info_color = (0, 0, 255)
 
                 cv2.putText(color_image,
                             f"h={avg_h*100:.1f}cm std={std_h*100:.1f}cm amt={amount*100:.0f}%",
@@ -351,7 +313,7 @@ try:
             cv2.rectangle(color_image, drag_start, drag_end, (0, 200, 200), 1)
 
 
-        # --- 9-6) Face Mesh로 입 위치 인식 ---
+        # --- 9-5) Face Mesh로 입 위치 인식 ---
         face_results = face_mesh.process(rgb_image)
         mouth_x, mouth_y, mouth_z = None, None, None
 
@@ -370,7 +332,6 @@ try:
             mouth_y = (upper_y + lower_y) // 2
             mouth_z = get_stable_depth(depth_frame, mouth_x, mouth_y)
 
-            # depth 0일때 이전 프레임 유지
             if mouth_z > 0:
                 last_mouth_z = mouth_z
             else:
@@ -381,7 +342,7 @@ try:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
 
-        # --- 9-7) Pose로 팔 관절 인식 ---
+        # --- 9-6) Pose로 팔 관절 인식 ---
         pose_results = pose.process(rgb_image)
         wrist_x, wrist_y, wrist_z = None, None, None
 
@@ -403,7 +364,6 @@ try:
             elbow_z    = get_stable_depth(depth_frame, elbow_x, elbow_y)
             wrist_z    = get_stable_depth(depth_frame, wrist_x, wrist_y, window_size=25)
 
-            # depth 0일때 이전 프레임 유지
             if wrist_z > 0:
                 last_wrist_z = wrist_z
             else:
@@ -423,25 +383,7 @@ try:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
 
-        # --- 9-8) 안전영역 WARNING 판정 ---
-        # 손목이 2D 다각형 안에 들어오면 경고
-        if wrist_x is not None and len(clicked_points) >= 3:
-            polygon = np.array(clicked_points, dtype=np.int32)
-            result  = cv2.pointPolygonTest(polygon, (wrist_x, wrist_y), False)
-
-            if result >= 0:  # 안에 있거나 경계선
-                # 화면 전체에 빨간 테두리 표시
-                cv2.rectangle(color_image, (0, 0), (w-1, h-1), (0, 0, 255), 8)
-                cv2.putText(color_image, "WARNING: WRIST IN DANGER ZONE!",
-                            (w//2 - 280, h//2),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 3)
-            else:
-                cv2.putText(color_image, "SAFE",
-                            (10, 200),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-
-
-        # --- 9-9) 테이블 평면 기반 위험 판정 ---
+        # --- 9-7) 테이블 평면 기반 위험 판정 ---
         if wrist_x is not None and wrist_z > 0 and table_plane is not None:
             depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
             wrist_point  = rs.rs2_deproject_pixel_to_point(
@@ -458,15 +400,17 @@ try:
             elif dist_to_table >= WARN_HEIGHT:
                 danger_color = (0, 255, 255)
                 danger_text  = f"Table dist: {dist_to_table:.3f}m WARNING"
+                cv2.rectangle(color_image, (0, 0), (w-1, h-1), (0, 255, 255), 4)
             else:
                 danger_color = (0, 0, 255)
                 danger_text  = f"Table dist: {dist_to_table:.3f}m DANGER!"
+                cv2.rectangle(color_image, (0, 0), (w-1, h-1), (0, 0, 255), 8)
 
-            cv2.putText(color_image, danger_text, (10, 230),
+            cv2.putText(color_image, danger_text, (10, 200),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, danger_color, 2)
 
 
-        # --- 9-10) 손목 → 입 3D 거리 계산 ---
+        # --- 9-8) 손목 → 입 3D 거리 계산 ---
         if (mouth_x is not None and wrist_x is not None
                 and mouth_z > 0 and wrist_z > 0):
 
@@ -491,7 +435,7 @@ try:
                 dist_color = (0, 255, 0)
                 dist_text  = f"Wrist->Mouth: {distance_3d:.3f}m"
 
-            cv2.putText(color_image, dist_text, (10, 270),
+            cv2.putText(color_image, dist_text, (10, 240),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, dist_color, 2)
             cv2.line(color_image,
                      (wrist_x, wrist_y),
@@ -499,11 +443,11 @@ try:
                      dist_color, 2)
 
 
-        # --- 9-11) 화면 출력 ---
+        # --- 9-9) 화면 출력 ---
         cv2.imshow(window_name, color_image)
 
 
-        # --- 9-12) 키보드 입력 처리 ---
+        # --- 9-10) 키보드 입력 처리 ---
         key = cv2.waitKey(1) & 0xFF
 
         if roi_mode:
@@ -542,7 +486,6 @@ try:
                 current_roi_name = ""
                 print("ROI mode! Type name + Enter, then drag!")
             elif key == ord('c'):
-                clicked_points.clear()
                 food_roi.clear()
                 table_points_3d.clear()
                 table_plane = None
